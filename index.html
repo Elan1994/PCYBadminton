@@ -13,4 +13,43 @@ if(shareParams.get('view')==='matches')document.querySelector('[data-view="match
 if(shareParams.get('readonly')==='1'){document.head.insertAdjacentHTML('beforeend','<style>body.viewonly .toolbar{display:none!important}body.viewonly .view:not(#qualification){display:none!important}body.viewonly #qualification{display:block!important}</style>')}
 document.head.insertAdjacentHTML('beforeend','<style>@media(min-width:801px){#tables{grid-template-columns:repeat(2,minmax(0,1fr))}#tables .scroll table{min-width:0;table-layout:fixed}#tables th,#tables td{padding:10px 8px}#tables th:nth-child(2),#tables td:nth-child(2){width:34%}#tables .badge{font-size:9px;padding:4px 5px}}</style>');
 function compactShare(readonly,view){const data=matches.filter(m=>m.score).map(m=>[m.id,m.score[0],m.score[1],m.wo||'']);const payload=encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(data)))));return `${location.href.split('#')[0]}#${readonly?'readonly=1&':''}view=${view}&results=${payload}`}try{const shared=shareParams.get('results');if(shared){JSON.parse(decodeURIComponent(escape(atob(shared)))).forEach(item=>{const id=Array.isArray(item)?item[0]:item.id,m=matches.find(x=>x.id===id);if(m){m.score=Array.isArray(item)?[item[1],item[2]]:item.score;m.wo=Array.isArray(item)?item[3]||null:item.wo||null}});render()}}catch{}$('#share').onclick=async()=>{const url=compactShare(false,'matches');try{await navigator.clipboard.writeText(url);$('#share').textContent=`${matches.filter(m=>m.score).length} results copied`}catch{prompt('Copy this editable progress link:',url)}setTimeout(()=>$('#share').textContent='Share progress',1800)};standingsShare.onclick=async()=>{const url=compactShare(true,'qualification');try{await navigator.clipboard.writeText(url);standingsShare.textContent=`${matches.filter(m=>m.score).length} results copied`}catch{prompt('Copy this view-only standings link:',url)}setTimeout(()=>standingsShare.textContent='Share standings',1800)};
+// Final navigation and roster refinements.
+members['Desi Duo']=['Arvind Soni','Ram'];
+members['Drop Shot Mafia']=['Ganesh','Saravanan S'];
+document.querySelector('[data-view="qualification"]').textContent='Group standings';
+document.querySelector('#overview .head h2:last-child')?.replaceChildren('Group standings preview');
+
+const knockoutTab=document.createElement('button');
+knockoutTab.className='tab';
+knockoutTab.dataset.view='knockout';
+knockoutTab.textContent='Knockout schedule';
+document.querySelector('.tabs').append(knockoutTab);
+const knockoutView=document.createElement('section');
+knockoutView.id='knockout';
+knockoutView.className='view';
+knockoutView.innerHTML=`
+  <div class="notice"><b>Knockout stage · Sunday, 23 August</b> &mdash; Teams will be filled after the group stage.</div>
+  <div class="knockout-grid">
+    <article class="card knockout-card"><div class="head"><h2>Quarter-finals</h2><span class="tag">4 matches</span></div><div class="knockout-list">
+      <div><time>8:00 AM</time><strong>Quarter-final 1</strong><span>TBD vs TBD</span></div>
+      <div><time>8:30 AM</time><strong>Quarter-final 2</strong><span>TBD vs TBD</span></div>
+      <div><time>9:00 AM</time><strong>Quarter-final 3</strong><span>TBD vs TBD</span></div>
+      <div><time>9:30 AM</time><strong>Quarter-final 4</strong><span>TBD vs TBD</span></div>
+    </div></article>
+    <article class="card knockout-card"><div class="head"><h2>Semi-finals</h2><span class="tag">2 matches</span></div><div class="knockout-list">
+      <div><time>10:15 AM</time><strong>Semi-final 1</strong><span>TBD vs TBD</span></div>
+      <div><time>11:00 AM</time><strong>Semi-final 2</strong><span>TBD vs TBD</span></div>
+    </div></article>
+    <article class="card knockout-card final-card"><div class="head"><h2>Final</h2><span class="tag">Championship match</span></div><div class="knockout-list"><div><time>12:00 PM</time><strong>Final</strong><span>TBD vs TBD</span></div></div></article>
+  </div>`;
+document.querySelector('main.app').append(knockoutView);
+knockoutTab.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===knockoutTab));
+  document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x===knockoutView));
+};
+document.head.insertAdjacentHTML('beforeend',`<style>
+.knockout-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.knockout-list>div{display:grid;gap:3px;padding:17px;border-bottom:1px solid #23344b}.knockout-list>div:last-child{border-bottom:0}.knockout-list time{font-weight:900;color:var(--yellow)}.knockout-list strong{font-size:16px}.knockout-list span{color:var(--muted)}.final-card{background:linear-gradient(140deg,#182d4a,#132038)}@media(max-width:800px){.knockout-grid{grid-template-columns:1fr}}
+</style>`);
+document.querySelectorAll('h2').forEach(heading=>{if(heading.textContent==='Qualification preview')heading.textContent='Group standings preview'});
+render();
 </script></body></html>
