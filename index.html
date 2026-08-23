@@ -29,29 +29,68 @@ document.querySelector('.tabs').append(knockoutTab);
 const knockoutView=document.createElement('section');
 knockoutView.id='knockout';
 knockoutView.className='view';
-knockoutView.innerHTML=`
-  <div class="notice"><b>Knockout stage · Sunday, 23 August</b> &mdash; Teams will be filled after the group stage.</div>
-  <div class="knockout-grid">
-    <article class="card knockout-card"><div class="head"><h2>Quarter-finals</h2><span class="tag">4 matches</span></div><div class="knockout-list">
-      <div><time>8:00 AM</time><strong>Quarter-final 1</strong><span>TBD vs TBD</span></div>
-      <div><time>8:30 AM</time><strong>Quarter-final 2</strong><span>TBD vs TBD</span></div>
-      <div><time>9:00 AM</time><strong>Quarter-final 3</strong><span>TBD vs TBD</span></div>
-      <div><time>9:30 AM</time><strong>Quarter-final 4</strong><span>TBD vs TBD</span></div>
-    </div></article>
-    <article class="card knockout-card"><div class="head"><h2>Semi-finals</h2><span class="tag">2 matches</span></div><div class="knockout-list">
-      <div><time>10:15 AM</time><strong>Semi-final 1</strong><span>TBD vs TBD</span></div>
-      <div><time>11:00 AM</time><strong>Semi-final 2</strong><span>TBD vs TBD</span></div>
-    </div></article>
-    <article class="card knockout-card final-card"><div class="head"><h2>Final</h2><span class="tag">Championship match</span></div><div class="knockout-list"><div><time>12:00 PM</time><strong>Final</strong><span>TBD vs TBD</span></div></div></article>
-  </div>`;
+knockoutView.innerHTML='<div class="notice"><b>Knockout stage · Sunday, 23 August</b> — Every match is best of 3 sets, with 21 points needed to win each set.</div><div id="knockoutFixtures"></div>';
 document.querySelector('main.app').append(knockoutView);
-knockoutTab.onclick=()=>{
-  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===knockoutTab));
-  document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x===knockoutView));
-};
-document.head.insertAdjacentHTML('beforeend',`<style>
-.knockout-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.knockout-list>div{display:grid;gap:3px;padding:17px;border-bottom:1px solid #23344b}.knockout-list>div:last-child{border-bottom:0}.knockout-list time{font-weight:900;color:var(--yellow)}.knockout-list strong{font-size:16px}.knockout-list span{color:var(--muted)}.final-card{background:linear-gradient(140deg,#182d4a,#132038)}@media(max-width:800px){.knockout-grid{grid-template-columns:1fr}}
-</style>`);
+const knockoutMatches=[
+  {id:'QF1',stage:'Quarter-finals',time:'8:30 AM',a:'EA Smashers',b:'Double Trouble'},
+  {id:'QF2',stage:'Quarter-finals',time:'9:00 AM',a:'Desi Duo',b:'Smash & Drop Shuttlers'},
+  {id:'QF3',stage:'Quarter-finals',time:'9:30 AM',a:'RCP',b:'SWAT KATS'},
+  {id:'QF4',stage:'Quarter-finals',time:'10:00 AM',a:'Greens',b:'Usaid & Bonnie'},
+  {id:'SF1',stage:'Semi-finals',time:'10:45 AM',a:'QF1 Winner',b:'QF2 Winner',sources:['QF1','QF2']},
+  {id:'SF2',stage:'Semi-finals',time:'11:30 AM',a:'QF3 Winner',b:'QF4 Winner',sources:['QF3','QF4']},
+  {id:'FINALS',stage:'Finals',time:'12:30 PM',a:'SF1 Winner',b:'SF2 Winner',sources:['SF1','SF2']}
+];
+const KNOCKOUT_KEY='pcy-knockout-v1';
+let knockoutResults={};
+try{knockoutResults=JSON.parse(localStorage.getItem(KNOCKOUT_KEY)||'{}')}catch{}
+try{const sharedKnockout=shareParams.get('knockout');if(sharedKnockout)knockoutResults=JSON.parse(decodeURIComponent(escape(atob(sharedKnockout))))}catch{}
+function knockoutTeams(match){return match.sources?match.sources.map(source=>knockoutWinner(knockoutMatches.find(item=>item.id===source))||`${source} Winner`):[match.a,match.b]}
+function knockoutWinner(match){const result=knockoutResults[match.id];if(!result)return '';let wins=[0,0];result.sets.forEach(set=>wins[set[0]>set[1]?0:1]++);const teams=knockoutTeams(match);return wins[0]===2?teams[0]:wins[1]===2?teams[1]:''}
+function knockoutScore(match){const result=knockoutResults[match.id];return result?result.sets.map(set=>set.join('–')).join(', '):'—'}
+function renderKnockout(){const container=$('#knockoutFixtures');container.innerHTML=['Quarter-finals','Semi-finals','Finals'].map(stage=>`<section class="card scroll knockout-card"><div class="head"><h2>${stage}</h2><span class="tag">Best of 3 · 21 points</span></div><table><thead><tr><th>Match</th><th>Time</th><th>Team 1</th><th>Team 2</th><th>Sets</th><th>Winner</th><th></th></tr></thead><tbody>${knockoutMatches.filter(match=>match.stage===stage).map(match=>{const teams=knockoutTeams(match),ready=!match.sources||teams.every(team=>!team.endsWith(' Winner'));return `<tr><td>${match.id}</td><td>${match.time}</td><td>${teams[0]}</td><td>${teams[1]}</td><td>${knockoutScore(match)}</td><td>${knockoutWinner(match)||'—'}</td><td><button class="score" data-knockout="${match.id}" ${ready?'':'disabled'}>${knockoutResults[match.id]?'Edit':'Record'}</button></td></tr>`}).join('')}</tbody></table></section>`).join('');if(typeof refreshKnockoutShare==='function')refreshKnockoutShare();if(typeof renderAppreciation==='function')renderAppreciation()}
+const knockoutDialog=document.createElement('dialog');
+knockoutDialog.id='knockoutDialog';
+knockoutDialog.innerHTML='<div class="modal-head"><h2>Record knockout result</h2></div><form class="modal-body" id="knockoutForm"><p class="fixture" id="knockoutTitle"></p><p class="muted">Enter completed sets only. The first team to win two sets progresses.</p><div id="setEntries"></div><div class="modal-actions"><button type="button" class="cancel" id="cancelKnockout">Cancel</button><button class="save">Save result</button></div></form>';
+document.body.append(knockoutDialog);
+let activeKnockout;
+function openKnockout(id){activeKnockout=knockoutMatches.find(match=>match.id===id);const teams=knockoutTeams(activeKnockout),sets=knockoutResults[id]?.sets||[[null,null],[null,null],[null,null]];$('#knockoutTitle').textContent=`${id} · ${activeKnockout.time} · ${teams.join(' vs ')}`;$('#setEntries').innerHTML=sets.map((set,index)=>`<div class="entry"><label>Set ${index+1}<br><small>${teams[0]} vs ${teams[1]}</small></label><div class="control"><input name="a${index}" type="number" min="0" inputmode="numeric" value="${set[0]??''}"><b>–</b><input name="b${index}" type="number" min="0" inputmode="numeric" value="${set[1]??''}"></div></div>`).join('');knockoutDialog.showModal()}
+function validSet(set){return set[0]!==set[1]&&Math.max(...set)>=21&&Math.abs(set[0]-set[1])>=2}
+$('#cancelKnockout').onclick=()=>knockoutDialog.close();
+$('#knockoutForm').onsubmit=event=>{event.preventDefault();const form=new FormData(event.currentTarget),sets=[0,1,2].map(index=>[form.get(`a${index}`),form.get(`b${index}`)]).filter(set=>set[0]!==''||set[1]!=='').map(set=>set.map(Number));if(sets.length<2||sets.length>3||sets.some(set=>!validSet(set)))return alert('Enter 2 or 3 completed sets. Each set needs a winner on at least 21 points with a 2-point lead.');let wins=[0,0];sets.forEach(set=>wins[set[0]>set[1]?0:1]++);if(Math.max(...wins)!==2)return alert('A team must win exactly two sets.');knockoutResults[activeKnockout.id]={sets};localStorage.setItem(KNOCKOUT_KEY,JSON.stringify(knockoutResults));knockoutDialog.close();renderKnockout()};
+knockoutTab.onclick=()=>{document.querySelectorAll('.tab').forEach(tab=>tab.classList.toggle('active',tab===knockoutTab));document.querySelectorAll('.view').forEach(view=>view.classList.toggle('active',view===knockoutView));renderKnockout()};
+document.addEventListener('click',event=>{const button=event.target.closest('[data-knockout]');if(button)openKnockout(button.dataset.knockout)});
+const knockoutShare=document.createElement('button');
+knockoutShare.className='secondary';
+knockoutShare.id='shareKnockout';
+$('#shareStandings').after(knockoutShare);
+function refreshKnockoutShare(){const quarterFinalsComplete=knockoutMatches.filter(match=>match.stage==='Quarter-finals').every(match=>knockoutWinner(match));knockoutShare.disabled=!quarterFinalsComplete;knockoutShare.textContent=quarterFinalsComplete?'Share knockout standings':'Complete QFs to share'}
+knockoutShare.onclick=async()=>{const knockoutPayload=encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(knockoutResults)))));const url=`${compactShare(true,'knockout')}&knockout=${knockoutPayload}`;try{await navigator.clipboard.writeText(url);knockoutShare.textContent='Knockout link copied'}catch{prompt('Copy this knockout standings link:',url)}setTimeout(refreshKnockoutShare,1800)};
+document.head.insertAdjacentHTML('beforeend','<style>.knockout-card{margin-bottom:16px}.knockout-card table{min-width:880px;table-layout:fixed}.knockout-card th,.knockout-card td{vertical-align:middle}.knockout-card th:nth-child(1),.knockout-card td:nth-child(1){width:11%}.knockout-card th:nth-child(2),.knockout-card td:nth-child(2){width:11%}.knockout-card th:nth-child(3),.knockout-card td:nth-child(3),.knockout-card th:nth-child(4),.knockout-card td:nth-child(4){width:19%}.knockout-card th:nth-child(5),.knockout-card td:nth-child(5){width:16%}.knockout-card th:nth-child(6),.knockout-card td:nth-child(6){width:17%}.knockout-card th:last-child,.knockout-card td:last-child{text-align:right;width:7%}.knockout-card .score:disabled,#shareKnockout:disabled{opacity:.45;cursor:not-allowed}</style>');
+if(shareParams.get('view')==='knockout'){document.body.classList.add('view-knockout');knockoutTab.click();document.head.insertAdjacentHTML('beforeend','<style>body.viewonly.view-knockout #qualification{display:none!important}body.viewonly.view-knockout #knockout{display:block!important}</style>')}
+const appreciationTab=document.createElement('button');
+appreciationTab.className='tab';
+appreciationTab.dataset.view='appreciation';
+appreciationTab.textContent='Celebration';
+document.querySelector('.tabs').append(appreciationTab);
+const appreciationView=document.createElement('section');
+appreciationView.id='appreciation';
+appreciationView.className='view';
+document.querySelector('main.app').append(appreciationView);
+const appreciationShare=document.createElement('button');
+appreciationShare.className='secondary';
+appreciationShare.id='shareAppreciation';
+$('#shareKnockout').after(appreciationShare);
+function knockoutLoser(match){const winner=knockoutWinner(match);if(!winner)return '';return knockoutTeams(match).find(team=>team!==winner)||''}
+function appreciationData(){const final=knockoutMatches.find(match=>match.id==='FINALS'),champion=knockoutWinner(final);if(!champion)return null;return {champion,runnerUp:knockoutLoser(final),semiFinalists:['SF1','SF2'].map(id=>knockoutLoser(knockoutMatches.find(match=>match.id===id))).filter(Boolean)}}
+function renderAppreciation(){const data=appreciationData();appreciationShare.disabled=!data;if(!data){appreciationShare.textContent='Complete final to share';appreciationView.innerHTML='<div class="celebration-pending"><span>🏸</span><h2>The celebration page is almost ready</h2><p>Complete the final to reveal the champions, runners-up and semi-finalists.</p></div>';return}appreciationShare.textContent='Share appreciation';appreciationView.innerHTML=`<section class="celebration-hero"><div class="celebration-kicker">PCY Men’s Badminton Tournament · August 2026</div><div class="trophy">🏆</div><p class="celebration-label">Champions</p><h2>${data.champion}</h2><p>What a finish — congratulations on an outstanding tournament!</p></section><section class="celebration-grid"><article class="honour-card finalist-card"><span>🥈</span><p>Finalists</p><h3>${data.runnerUp}</h3><small>A brilliant campaign and a hard-fought final.</small></article>${data.semiFinalists.map((team,index)=>`<article class="honour-card"><span>${index===0?'🌟':'✨'}</span><p>Semi-finalists</p><h3>${team}</h3><small>Thank you for an exceptional run to the final four.</small></article>`).join('')}</section><p class="celebration-footer">Every rally, every partnership, every point — thank you to all teams for making the tournament special.</p>`}
+appreciationTab.onclick=()=>{document.querySelectorAll('.tab').forEach(tab=>tab.classList.toggle('active',tab===appreciationTab));document.querySelectorAll('.view').forEach(view=>view.classList.toggle('active',view===appreciationView));renderAppreciation()};
+appreciationShare.onclick=async()=>{const knockoutPayload=encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(knockoutResults)))));const url=`${compactShare(true,'appreciation')}&knockout=${knockoutPayload}`;try{await navigator.clipboard.writeText(url);appreciationShare.textContent='Appreciation link copied'}catch{prompt('Copy this appreciation link:',url)}setTimeout(renderAppreciation,1800)};
+if(shareParams.get('view')==='appreciation'){document.body.classList.add('view-appreciation');appreciationTab.click();document.head.insertAdjacentHTML('beforeend','<style>body.viewonly.view-appreciation #qualification{display:none!important}body.viewonly.view-appreciation #appreciation{display:block!important}</style>')}
+document.head.insertAdjacentHTML('beforeend','<style>.celebration-hero{position:relative;overflow:hidden;margin-bottom:16px;padding:42px 24px;text-align:center;border:1px solid #58769d;border-radius:18px;background:radial-gradient(circle at 50% 0,#4f3b75,#152842 62%,#0f1a2c)}.celebration-hero:before,.celebration-hero:after{content:"✦";position:absolute;color:#ffd34e;font-size:74px;opacity:.32}.celebration-hero:before{top:16px;left:9%}.celebration-hero:after{right:10%;bottom:10px}.celebration-kicker,.celebration-label{position:relative;margin:0;color:#ffd34e;font-size:12px;font-weight:900;letter-spacing:.11em;text-transform:uppercase}.trophy{position:relative;margin:14px 0 5px;font-size:64px;filter:drop-shadow(0 8px 10px #0008)}.celebration-hero h2{position:relative;margin:4px 0;font-size:clamp(30px,5vw,52px);font-style:italic;text-transform:uppercase}.celebration-hero p:last-child{position:relative;margin:10px 0 0;color:#d9e6f8}.celebration-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.honour-card{min-height:205px;padding:24px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(145deg,#172943,#101d30)}.honour-card span{font-size:36px}.honour-card p{margin:14px 0 4px;color:var(--yellow);font-size:12px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}.honour-card h3{margin:0 0 10px;font-size:23px}.honour-card small{display:block;max-width:260px}.finalist-card{background:linear-gradient(145deg,#34435a,#18273c)}.celebration-footer{margin:20px 0;text-align:center;color:var(--muted);font-weight:700}.celebration-pending{padding:90px 22px;text-align:center;border:1px dashed #537292;border-radius:18px;background:#111e31}.celebration-pending span{font-size:52px}.celebration-pending h2{margin:12px 0 5px}.celebration-pending p{margin:0;color:var(--muted)}@media(max-width:800px){.celebration-grid{grid-template-columns:1fr}.celebration-hero{padding:34px 18px}}</style>');
 document.querySelectorAll('h2').forEach(heading=>{if(heading.textContent==='Qualification preview')heading.textContent='Group standings preview'});
+renderKnockout();
 render();
+refreshKnockoutShare();
+renderAppreciation();
+$('#reset').onclick=()=>{if(confirm('Clear all recorded results?')){matches.forEach(match=>{match.score=null;match.wo=null});knockoutResults={};localStorage.removeItem(KEY);localStorage.removeItem(KNOCKOUT_KEY);render();renderKnockout();renderAppreciation()}};
 </script></body></html>
